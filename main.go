@@ -29,7 +29,8 @@ func serveMobile(addr string) {
 
 func mobileHandler(conn net.Conn) {
 	// @todo #4 add upgrader for this handler when mobile connect to this server
-	// we will upgrade from HTTP to Websocket for them.
+	// we will upgrade from HTTP to Websocket for them. Do not forget to wrap
+	// conn with deadliner!
 }
 
 func nameConn(conn net.Conn) string {

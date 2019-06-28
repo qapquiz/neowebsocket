@@ -13,6 +13,8 @@ import (
 type Remote struct {
 	id uint
 
+	receivePacketChan chan []byte
+
 	conn io.ReadWriteCloser
 
 	io sync.Mutex
@@ -32,9 +34,49 @@ func (r *Remote) Receive() error {
 		return nil
 	}
 
-	// @todo #1 extract packet and call packetFunc
+	r.safeSendToChannel(r.receivePacketChan, p)
 
 	return nil
+}
+
+// ReadWorker will read packet from channel
+func (r *Remote) ReadWorker(processFunc func(p []byte)) {
+	for p := range r.receivePacketChan {
+		processFunc(p)
+	}
+}
+
+// Write will send data to underlying connection
+func (r *Remote) Write(p []byte) error {
+	wtr := wsutil.NewWriter(r.conn, ws.StateServerSide, ws.OpBinary)
+
+	r.io.Lock()
+	defer r.io.Unlock()
+
+	if _, err := wtr.Write(p); err != nil {
+		return err
+	}
+
+	return wtr.Flush()
+}
+
+// Close this connection
+func (r *Remote) Close() {
+	r.conn.Close()
+	r.SafeCloseChannel()
+}
+
+// SafeCloseChannel will close channel if error mean channel already close
+func (r *Remote) SafeCloseChannel() (justClosed bool) {
+	defer func() {
+		if recover() != nil {
+			justClosed = true
+		}
+	}()
+
+	close(r.receivePacketChan)
+
+	return true
 }
 
 // readRequest reads bytes from connection
@@ -60,13 +102,14 @@ func (r *Remote) readRequest() ([]byte, error) {
 	return p, nil
 }
 
-func (r *Remote) write(p []byte) error {
-	wtr := wsutil.NewWriter(r.conn, ws.StateServerSide, ws.OpBinary)
+func (r *Remote) safeSendToChannel(ch chan<- []byte, value []byte) (closed bool) {
+	defer func() {
+		if recover() != nil {
+			closed = true
+		}
+	}()
 
-	r.io.Lock()
-	defer r.io.Unlock()
+	ch <- value
 
-	// @todo #2 write packet in properly format with packetWriter
-
-	return wtr.Flush()
+	return false
 }

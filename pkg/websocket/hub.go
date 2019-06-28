@@ -27,7 +27,8 @@ func NewHub() *Hub {
 // Register registers new connection as a Remote.
 func (h *Hub) Register(conn net.Conn) *Remote {
 	remote := &Remote{
-		conn: conn,
+		receivePacketChan: make(chan []byte),
+		conn:              conn,
 	}
 
 	h.mu.Lock()

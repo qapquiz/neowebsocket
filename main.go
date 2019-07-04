@@ -103,7 +103,12 @@ func mobileHandler(conn net.Conn, hub *websocket.Hub) {
 		rdr := packet.NewReader(p)
 		packetID := rdr.ReadUInt16()
 
-		packetProcessor.GetPacketFunc(packetID)(remote, rdr)
+		fn, err := packetProcessor.GetPacketFunc(packetID)
+		if err != nil {
+			return
+		}
+
+		fn(remote, rdr)
 	})
 
 	desc := netpoll.Must(netpoll.HandleRead(conn))

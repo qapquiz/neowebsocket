@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"flag"
 	"log"
 	"net"
@@ -10,7 +11,6 @@ import (
 	"github.com/mailru/easygo/netpoll"
 	"github.com/qapquiz/neowebsocket/internal/mobile"
 	"github.com/qapquiz/neowebsocket/pkg/websocket"
-	"github.com/qapquiz/packet"
 	"go.uber.org/zap"
 )
 
@@ -100,15 +100,16 @@ func mobileHandler(conn net.Conn, hub *websocket.Hub) {
 	packetProcessor := mobile.NewPacketProcessor()
 
 	go remote.ReadWorker(func(p []byte) {
-		rdr := packet.NewReader(p)
-		packetID := rdr.ReadUInt16()
+		packetIDBytes, p := p[0:2], p[2:] // pop 2 bytes front
+
+		packetID := binary.LittleEndian.Uint16(packetIDBytes)
 
 		fn, err := packetProcessor.GetPacketFunc(packetID)
 		if err != nil {
 			return
 		}
 
-		fn(remote, rdr)
+		fn(remote, p)
 	})
 
 	desc := netpoll.Must(netpoll.HandleRead(conn))
